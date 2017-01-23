@@ -1,0 +1,11 @@
+# depslib dependency file v1.0
+1484894691 source:c:\syncfolder\simplo\@smp fuel gauge\capacity report enhancement\algorithm\code\capacity_report_enhancement_v001\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
+1484894777 source:c:\users\charlie_chiu\github_repo\capacity-report-enhancement\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
