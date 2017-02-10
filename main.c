@@ -31,7 +31,11 @@ int alg_charging(int total_chg_row,int in_chg_count)
     return 0;
 }
 
-int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count)
+FILE *pResultFile;
+int v1v2_t = 0;
+char buffer[]={ 'H','e','y' };
+
+int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count,int cycle_file)
 {
     static int v1_t = 0;
     static int v2_t = 0;
@@ -40,7 +44,12 @@ int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count)
     static int flag3 = 1;
     static int v_old = 0;
     static int v_new = 0;
-    int v1v2_t = 0;
+    //int v1v2_t = 0;
+
+    //char cBuffer[20];
+
+    //FILE *pResultFile;
+    //pResultFile = fopen("result.txt","w");
 
     v_new = voltage_pack;
 
@@ -55,10 +64,10 @@ int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count)
         V2firstenter = 0;  //to prevent entering again
     }
 
-    if(((v_new - v_old < -1000) || (v_new - v_old > 1000)) && in_dchg_count > 1)    //unexpected voltage jump during dchg
+    if(((v_new - v_old < -1000) || (v_new - v_old > 1000)) && in_dchg_count > 1)    //unexpected voltage jump or drop during dchg
     {
         v1v2_t = 0;
-        //flag3 = 0;
+        flag3 = 0;
     }
     else
     {
@@ -69,14 +78,24 @@ int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count)
     {
         if(flag3 == 1)
         {
-            printf("%d\r\n",v1v2_t);
+            //printf("%d\r\n",v1v2_t);
+
+            //sprintf(cBuffer,"%d",v1v2_t);
+
+            //fwrite("abc",1,sizeof(int)+1,pResultFile);
+            //fwrite(cBuffer,1,sizeof(int)+1,pResultFile);
+            //fprintf(pResultFile, "%d\t%f\n", v1v2_t, 3.14);
+
+
             V1firstenter = 1;   //release the condition when dchg is done
             V2firstenter = 1;   //release the condition when dchg is done
         }
         else
         {
-            printf("%d\r\n",0);
+            printf("Warning! Unexpected voltage jump or drop during dchg! cycle:%d deltaV:%d\r\n",cycle_file,deltaV);
             flag3 = 1;
+            v1v2_t = -1;
+            return 0;
         }
 
     }
@@ -158,7 +177,7 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
         return 0;
     }
 
-    //if the file did not pass the file integrity check, there is no point to enter alg mode
+    //if the file did not pass the file integrity check, there is no point in entering alg mode
     if(alg_mode)
     {
         if(*file_integrity_check == 0) //pass file integrity check
@@ -222,7 +241,7 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             if(alg_mode)
             {
                 //do things while discharging in real time
-                alg_discharging(deltaV,*total_dchg_row_num,in_dchg_count);
+                alg_discharging(deltaV,*total_dchg_row_num,in_dchg_count,cycle_file);
                 current_dchg[in_dchg_count] = current_learning_machine;
                 in_dchg_count++;
             }
@@ -247,7 +266,7 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
         (*total_row_num)++; //accumulate total row count. Total row should be equal to CHG + DCHG + REST row count, otherwise is will not pass file integrity check
     }
 
-    if((*file_integrity_check == 0) && (*total_row_num != *total_chg_row_num + *total_dchg_row_num + *total_rest_row_num))  //.csv data integrity check from Desc
+    if((!alg_mode) && (*file_integrity_check == 0) && (*total_row_num != *total_chg_row_num + *total_dchg_row_num + *total_rest_row_num))  //.csv data integrity check from Desc
     {
         *file_integrity_check = 1;  //did not pass the check
         printf("cycle:\t%d Warning! Unknown Desc in the .csv! Data may be incomplete!\r\n",cycle_file);
@@ -310,41 +329,81 @@ int main()
 
     int deltaV = 0;     //the voltage difference between v1 and v2
 
-    for(deltaV = 50;deltaV <= 500; deltaV+=50) //decrease v2 for every cycle
+    pResultFile = fopen("result.txt","w");
+    if( NULL == pResultFile )
     {
-        for(cycle_file = 1; cycle_file <= TOTALFILENUM/*TOTALFILENUM*/; cycle_file++)   //cycle all the files in the folder
-        {
-            if(cycle_file < 10) //add "00": "1" -> "001"
-            {
-                sprintf(st2,"%d",cycle_file);   //convert int to string
-                *combined_str = concat(st1,st4);
-                *combined_str2 = concat(*combined_str,st2);
-                *combined_str3 = concat(*combined_str2,st3);
-                *file_path = *combined_str3;
-            }
-            else if(cycle_file < 100)   //add "0": "10" -> "010"
-            {
-                sprintf(st2,"%d",cycle_file);   //convert int to string
-                *combined_str = concat(st1,st5);
-                *combined_str2 = concat(*combined_str,st2);
-                *combined_str3 = concat(*combined_str2,st3);
-                *file_path = *combined_str3;
-            }
-            else
-            {
-                sprintf(st2,"%d",cycle_file);   //convert int to string
-                *combined_str = concat(st1,st2);
-                *combined_str2 = concat(*combined_str,st3);
-                *file_path = *combined_str2;
-            }
+        printf( "open failure" );
 
-            file_integrity_check = 0;
-            //always call desc_state(0,,,,) before desc_state(1,,,,)
-            desc_state(0,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //calculate how many rows of CHG, DCHG and REST modes
-            desc_state(1,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //execute algorithm
+        return 1;
+    }
+
+    fclose(pResultFile);
+
+    pResultFile = fopen("result.txt","a");
+
+    fprintf(pResultFile, "Cycle\t");
+    for(deltaV = 50;deltaV <= 600; deltaV+=50) //decrease v2 for every cycle
+    {
+        fprintf(pResultFile, "%d mV\t", V1 - deltaV);
+    }
+
+    fprintf(pResultFile, "\n");
+
+    for(cycle_file = 400; cycle_file <= 420/*TOTALFILENUM*/; cycle_file++)   //cycle all the files in the folder
+    {
+        //fprintf(pResultFile, "%d\t", cycle_file);
+
+        if(cycle_file < 10) //add "00": "1" -> "001"
+        {
+            sprintf(st2,"%d",cycle_file);   //convert int to string
+            *combined_str = concat(st1,st4);
+            *combined_str2 = concat(*combined_str,st2);
+            *combined_str3 = concat(*combined_str2,st3);
+            *file_path = *combined_str3;
+        }
+        else if(cycle_file < 100)   //add "0": "10" -> "010"
+        {
+            sprintf(st2,"%d",cycle_file);   //convert int to string
+            *combined_str = concat(st1,st5);
+            *combined_str2 = concat(*combined_str,st2);
+            *combined_str3 = concat(*combined_str2,st3);
+            *file_path = *combined_str3;
+        }
+        else
+        {
+            sprintf(st2,"%d",cycle_file);   //convert int to string
+            *combined_str = concat(st1,st2);
+            *combined_str2 = concat(*combined_str,st3);
+            *file_path = *combined_str2;
         }
 
-        printf("=====================%d\r\n",deltaV);
+        file_integrity_check = 0;
+        //always call desc_state(0,,,,) before desc_state(1,,,,)
+        desc_state(0,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //calculate how many rows of CHG, DCHG and REST modes
+
+        if(!file_integrity_check)
+        {
+            fprintf(pResultFile, "%d\t", cycle_file);
+
+            for(deltaV = 50;deltaV <= 600; deltaV+=50) //decrease v2 for every cycle
+            {
+                desc_state(1,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //execute algorithm
+
+                fprintf(pResultFile, "%d\t", v1v2_t);
+            }
+
+            fprintf(pResultFile, "\n");
+        }
+        else
+        {
+            fprintf(pResultFile, "%d\n", cycle_file);
+        }
+
+        //printf("=====================%d\r\n",deltaV);
+        printf("%f%%\r",100.0*cycle_file/TOTALFILENUM);
+        fflush(stdout);
     }
+
+    fclose(pResultFile);
     return 0;
 }
