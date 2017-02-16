@@ -45,7 +45,7 @@ char* getfield(char* line, int num)
     return NULL;
 }
 
-// C program to convert string to integer without using atoi function
+// C function to convert string to integer without using atoi function
 int toString(char a[]) {
   int c, sign, offset, n;
 
@@ -147,10 +147,6 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
     int in_chg_count = 0;
     int current_chg[*total_chg_row_num];
     int current_dchg[*total_dchg_row_num];
-    //int capacity_chg_mAs = 0;
-    //float capacity_chg_mAh = 0;
-    //int capacity_dchg_mAs = 0;
-    //float capacity_dchg_mAh = 0;
 
     static int v_old = 0;
     static int v_new = 0;
@@ -271,25 +267,6 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
         //printf("total row \t= %d\r\ntotal chg row \t= %d\r\ntotal dchg row \t= %d\r\ntotal rest row \t= %d\r\n",*total_chg_row_num,*total_chg_row_num,*total_dchg_row_num,*total_rest_row_num);
     }
 
-//    if(alg_mode)  //executes when in alg mode and after all lines from .csv are read (not in real time)
-//    {
-//        for(i = 0; i < (*total_chg_row_num); i++)   //calculate charging capacity
-//        {
-//            capacity_chg_mAs += current_chg[i];
-//            capacity_chg_mAh = capacity_chg_mAs * LOGINTS / 3600.0;
-//        }
-//
-//        //printf("cycle:\t%d\tchg capacity:%f\r\n",cycle_file,capacity_chg_mAh);
-//
-//        for(i = 0; i < (*total_dchg_row_num); i++)  //calculate discharging capacity
-//        {
-//            capacity_dchg_mAs += current_dchg[i];
-//            capacity_dchg_mAh = capacity_dchg_mAs * LOGINTS/ 3600.0;
-//        }
-//
-//        printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
-//    }
-
     fclose(stream1);
     return 0;
 }
@@ -341,13 +318,13 @@ int main()
     pResultFile = fopen(FILENAME,"a");
 
     fprintf(pResultFile, "Cycle\t");
+
     for(deltaV = INITDELTAV;deltaV <= DELTAVEND; deltaV+=DELTAVINCRE) //decrease v2 for every cycle
     {
         fprintf(pResultFile, "%d mV\t", V1 - deltaV);
     }
 
     fprintf(pResultFile, "DCHG Capacity\tCHG Capacity");
-
     fprintf(pResultFile, "\n");
 
     for(cycle_file = 1; cycle_file <= TOTALFILENUM/*TOTALFILENUM*/; cycle_file++)   //cycle all the files in the folder
@@ -398,9 +375,8 @@ int main()
                 //printf("%d\t", v1v2_t);
             }
 
-            //printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
             fprintf(pResultFile,"%f\t%f\t",capacity_dchg_mAh,capacity_chg_mAh);
-
+            //printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
             fprintf(pResultFile, "\n");
             //printf("\n");
         }
@@ -417,7 +393,6 @@ int main()
 
         printf("%f%%\t%d\r",100.0*cycle_file/TOTALFILENUM,cycle_file);
         fflush(stdout);
-
     }
 
     fclose(pResultFile);
