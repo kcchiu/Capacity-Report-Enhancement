@@ -27,10 +27,31 @@ char* file_path[300];
 enum {Rdate=1,Cycle,Loop,Step,Desc,LV,LI,LT,LF,CT,ohm,ManufacturerAccess,RemainingCapacityAlarm,RemainingTimeAlarm,BatteryMode,AtRate,AtRateTimeToFull,AtRateTimeToEmpty,AtRateOK,Temperature,Voltage,Current,AverageCurrent,MaxError,RelativeStateOfCharge,AbsoluteStateOfCharge,RemainingCapacity,FullChargeCapacity,RunTimeToEmpty,AverageTimeToEmpty,AverageTimeToFull,ChargingCurrent,ChargingVoltage,BatteryStatus,CycleCount,DesignCapacity,DesignVoltage,SpecificationInfo,ManufactureDate,SerialNumber,PackStatus,Packconfiguration,ManufactureData_VCELL1,ManufactureData_VCELL2,ManufactureData_VCELL3,ManufactureData_VCELL4,mAh,LmAh,WH,LWH};
 
 int cycle_file = 0;
-int current_learning_machine = 0;
-int voltage_learning_machine = 0;
-float temperature_pack = 0;
-int voltage_pack = 0;
+//int cfData.current_learning_machinee = 0;
+//int cfData.voltage_learning_machine = 0;
+//float cfData.temperature_pack = 0;
+//int cfData.voltage_pack = 0;
+
+struct cycle_file_data {
+    int current_learning_machine;
+    int voltage_learning_machine;
+    float temperature_pack;
+    int voltage_pack;
+} cfData;
+
+int total_row = -1;             //total rows in the file
+int total_chg_row = 0;          //total rows in learning machine charging mode
+int total_dchg_row = 0;         //total rows in learning machine discharging mode
+int total_rest_row = 0;         //total rows in learning machine rest mode
+int file_integrity_check = 0;   //0:Normal, 1:File integrity issue
+
+//struct cycle_file_property {
+//    int total_row;             //total rows in the file
+//    int total_chg_row;          //total rows in learning machine charging mode
+//    int total_dchg_row;         //total rows in learning machine discharging mode
+//    int total_rest_row;         //total rows in learning machine rest mode
+//    int file_integrity_check;   //0:Normal, 1:File integrity issue
+//} cfProperty;
 
 char* getfield(char* line, int num)
 {
@@ -73,18 +94,34 @@ int toString(char a[]) {
   return n;
 }
 
+int init()
+{
+    total_row = -1;
+    total_chg_row = 0;
+    total_dchg_row = 0;
+    total_rest_row = 0;
+    file_integrity_check = 0;
+
+    cfData.current_learning_machine = 0;
+    cfData.temperature_pack         = 0;
+    cfData.voltage_learning_machine = 0;
+    cfData.voltage_pack             = 0;
+
+    return 0;
+}
+
 int capacity_chg_mAs = 0;
 float capacity_chg_mAh = 0;
 
 int alg_charging(int deltaV,int total_chg_row,int in_chg_count)
 {
-    //printf("temperature:%f\r\n",temperature_pack);
-    //printf("voltage_pack:%d\r\n",voltage_pack);
+    //printf("temperature:%f\r\n",cfData.temperature_pack);
+    //printf("cfData.voltage_pack:%d\r\n",cfData.voltage_pack);
     //printf("%d\r\n",total_chg_row);
 
     if(deltaV == INITDELTAV)
     {
-        capacity_chg_mAs += current_learning_machine;
+        capacity_chg_mAs += cfData.current_learning_machine;
         capacity_chg_mAh = capacity_chg_mAs * LOGINTS/ 3600.0;
     }
 
@@ -105,12 +142,12 @@ int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count,int cycle_fi
     static int V1firstenter = 1;
     static int V2firstenter = 1;
 
-    if(voltage_pack <= V1 && V1firstenter == 1)    //reached V1 voltage for the first time
+    if(cfData.voltage_pack <= V1 && V1firstenter == 1)    //reached V1 voltage for the first time
     {
         v1_t = in_dchg_count * LOGINTS;     //record the time
         V1firstenter = 0;  //to prevent entering again
     }
-    else if(voltage_pack <= (V1 - deltaV) && V2firstenter == 1)    //reached V2 voltage (V1 - deltaV) for the first time
+    else if(cfData.voltage_pack <= (V1 - deltaV) && V2firstenter == 1)    //reached V2 voltage (V1 - deltaV) for the first time
     {
         v2_t = in_dchg_count * LOGINTS;     //record the time
         V2firstenter = 0;  //to prevent entering again
@@ -124,10 +161,10 @@ int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count,int cycle_fi
         V2firstenter = 1;   //release the condition when dchg is done
     }
 
-    if(deltaV == INITDELTAV)
+    if(deltaV == INITDELTAV)    //calculate the capacity only once for every cycle
     {
-        capacity_dchg_mAs -= current_learning_machine;
-        capacity_dchg_mAh = capacity_dchg_mAs * LOGINTS/ 3600.0;
+        capacity_dchg_mAs -= cfData.current_learning_machine;              //calculate discharge capacity
+        capacity_dchg_mAh = capacity_dchg_mAs * LOGINTS/ 3600.0;    //calculate discharge capacity
     }
 
     return 0;
@@ -166,7 +203,7 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
     if(alg_mode)
     {
         //if the file did not pass the file integrity check, there is no point in entering alg mode
-        if(*file_integrity_check == 0 /*&& voltage_abnor_diff_test == 0*/) //pass file integrity check
+        if(*file_integrity_check == 0) //pass file integrity check
         {
             alg_mode = 1;
         }
@@ -197,13 +234,13 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
         cdesc = getfield(tmp_desc, Desc);   //read Desc from tmp_desc to cdesc
         free(tmp_desc);
 
-        current_learning_machine = toString(getfield(tmp_LI, LI));  //read LI from tmp_LI and convert string to int
+        cfData.current_learning_machine = toString(getfield(tmp_LI, LI));  //read LI from tmp_LI and convert string to int
         free(tmp_LI);
 
-        temperature_pack = strtof(getfield(tmp_Temperature, Temperature),NULL); //read Temperature from tmp_Temperature and convert string to float
+        cfData.temperature_pack = strtof(getfield(tmp_Temperature, Temperature),NULL); //read Temperature from tmp_Temperature and convert string to float
         free(tmp_Temperature);
 
-        voltage_pack = toString(getfield(tmp_Voltage, Voltage));    //read Voltage from tmp_Voltage and convert string to int
+        cfData.voltage_pack = toString(getfield(tmp_Voltage, Voltage));    //read Voltage from tmp_Voltage and convert string to int
         free(tmp_Voltage);
 
         if(0==strcmp("CHG",cdesc))  //current read line is in CHG mode
@@ -212,7 +249,7 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             {
                 //do things while charging in real time
                 alg_charging(deltaV,*total_chg_row_num,in_chg_count);
-                current_chg[in_chg_count] = current_learning_machine;
+                current_chg[in_chg_count] = cfData.current_learning_machine;
                 in_chg_count++;
             }
             else
@@ -226,14 +263,14 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             {
                 //do things while discharging in real time
                 alg_discharging(deltaV,*total_dchg_row_num,in_dchg_count,cycle_file);
-                current_dchg[in_dchg_count] = current_learning_machine;
+                current_dchg[in_dchg_count] = cfData.current_learning_machine;
                 in_dchg_count++;
             }
             else
             {
                 (*total_dchg_row_num)++;    //accumulate DCHG row count
 
-                v_new = voltage_pack;
+                v_new = cfData.voltage_pack;
 
                 if(((v_new - v_old < -MAXVOLTDIFF) || (v_new - v_old > MAXVOLTDIFF)) && (*total_dchg_row_num) > 1)    //unexpected voltage jump or drop during dchg
                 {
@@ -283,12 +320,6 @@ char* concat(const char *s1, const char *s2)
     return result;
 }
 
-int total_row = -1;             //total rows in the file
-int total_chg_row = 0;          //total rows in learning machine charging mode
-int total_dchg_row = 0;         //total rows in learning machine discharging mode
-int total_rest_row = 0;         //total rows in learning machine rest mode
-int file_integrity_check = 0;   //0:Normal, 1:File integrity issue
-
 int main()
 {
     char* combined_str[300];
@@ -303,6 +334,8 @@ int main()
     int file_integrity_check = 0; //0:Normal, 1:File integrity issue
 
     int deltaV = 0;     //the voltage difference between v1 and v2
+
+    init();
 
     pResultFile = fopen(FILENAME,"w");  //create new blank file
 
