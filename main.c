@@ -6,11 +6,20 @@
 
 #ifdef LIBell3S1PATL363520C525W1
     #define LOGINTS 15          //learning machine log interval in seconds
-    #define TOTALFILENUM 1028   //total cycle file numbers in in the folder
-    #define FILEPATH    "C:\\SyncFolder\\Simplo\\@SMP Fuel Gauge\\Capacity Report Enhancement\\data\\LI Bell 3S1P ATL 3635 20C 5.25W-1\\LI Bell 3S1P ATL 3635 20C 5.25W-1-"
-    //#define FILEPATH "E:\\Simplo\\Data\\Cycle\\LI Bell 3S1P ATL 3635\\LI Bell 3S1P ATL 3635 20C 5.25W-2\\LI Bell 3S1P ATL 3635 20C 5.25W-2-"
+    //#define FILEPATH    "C:\\SyncFolder\\Simplo\\@SMP Fuel Gauge\\Capacity Report Enhancement\\data\\LI Bell 3S1P ATL 3635 20C 5.25W-1\\LI Bell 3S1P ATL 3635 20C 5.25W-1-"
+
+    //#define FILEPATH    "E:\\Simplo\\Data\\Cycle\\LI Bell 3S1P ATL 3635\\LI Bell 3S1P ATL 3635 45C 5.25W-3\\LI Bell 3S1P ATL 3635 45C 5.25W-3-"
+    #define FILEPATH    "E:\\Simplo\\Data\\Cycle\\LI Windu Tachi Rear 3S1P ATL 2040\\LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3\\LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3-"
+
+    #define FILENAME "LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3.txt"
+    #define TOTALFILENUM 262   //total cycle file numbers in in the folder
     #define V1 11400
 #endif
+
+#define MAXVOLTDIFF 1000
+#define INITDELTAV 50
+#define DELTAVINCRE 50
+#define DELTAVEND 600
 
 #define LINELENBUF 670
 
@@ -22,94 +31,6 @@ int current_learning_machine = 0;
 int voltage_learning_machine = 0;
 float temperature_pack = 0;
 int voltage_pack = 0;
-
-int alg_charging(int total_chg_row,int in_chg_count)
-{
-    //printf("temperature:%f\r\n",temperature_pack);
-    //printf("voltage_pack:%d\r\n",voltage_pack);
-    //printf("%d\r\n",total_chg_row);
-    return 0;
-}
-
-FILE *pResultFile;
-int v1v2_t = 0;
-char buffer[]={ 'H','e','y' };
-
-int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count,int cycle_file)
-{
-    static int v1_t = 0;
-    static int v2_t = 0;
-    static int V1firstenter = 1;
-    static int V2firstenter = 1;
-    static int flag3 = 1;
-    static int v_old = 0;
-    static int v_new = 0;
-    //int v1v2_t = 0;
-
-    //char cBuffer[20];
-
-    //FILE *pResultFile;
-    //pResultFile = fopen("result.txt","w");
-
-    v_new = voltage_pack;
-
-    if(voltage_pack <= V1 && V1firstenter == 1)    //reached V1 voltage for the first time
-    {
-        v1_t = in_dchg_count * LOGINTS;     //record the time
-        V1firstenter = 0;  //to prevent entering again
-    }
-    else if(voltage_pack <= (V1 - deltaV) && V2firstenter == 1)    //reached V2 voltage (V1 - deltaV) for the first time
-    {
-        v2_t = in_dchg_count * LOGINTS;     //record the time
-        V2firstenter = 0;  //to prevent entering again
-    }
-
-    if(((v_new - v_old < -1000) || (v_new - v_old > 1000)) && in_dchg_count > 1)    //unexpected voltage jump or drop during dchg
-    {
-        v1v2_t = 0;
-        flag3 = 0;
-    }
-    else
-    {
-        v1v2_t = v2_t - v1_t;
-    }
-
-    if(in_dchg_count == total_dchg_row-1)   //dchg is done
-    {
-        if(flag3 == 1)
-        {
-            //printf("%d\r\n",v1v2_t);
-
-            //sprintf(cBuffer,"%d",v1v2_t);
-
-            //fwrite("abc",1,sizeof(int)+1,pResultFile);
-            //fwrite(cBuffer,1,sizeof(int)+1,pResultFile);
-            //fprintf(pResultFile, "%d\t%f\n", v1v2_t, 3.14);
-
-
-            V1firstenter = 1;   //release the condition when dchg is done
-            V2firstenter = 1;   //release the condition when dchg is done
-        }
-        else
-        {
-            printf("Warning! Unexpected voltage jump or drop during dchg! cycle:%d deltaV:%d\r\n",cycle_file,deltaV);
-            flag3 = 1;
-            v1v2_t = -1;
-            return 0;
-        }
-
-    }
-
-    v_old = v_new;
-
-    return 0;
-}
-
-int alg_rest()
-{
-
-    return 0;
-}
 
 char* getfield(char* line, int num)
 {
@@ -152,6 +73,72 @@ int toString(char a[]) {
   return n;
 }
 
+int capacity_chg_mAs = 0;
+float capacity_chg_mAh = 0;
+
+int alg_charging(int deltaV,int total_chg_row,int in_chg_count)
+{
+    //printf("temperature:%f\r\n",temperature_pack);
+    //printf("voltage_pack:%d\r\n",voltage_pack);
+    //printf("%d\r\n",total_chg_row);
+
+    if(deltaV == INITDELTAV)
+    {
+        capacity_chg_mAs += current_learning_machine;
+        capacity_chg_mAh = capacity_chg_mAs * LOGINTS/ 3600.0;
+    }
+
+    return 0;
+}
+
+FILE *pResultFile;
+int v1v2_t = 0;
+int voltage_abnor_diff_test = 0; //0:Normal, 1:Voltage abnormal jump or drop
+
+int capacity_dchg_mAs = 0;
+float capacity_dchg_mAh = 0;
+
+int alg_discharging(int deltaV,int total_dchg_row,int in_dchg_count,int cycle_file)
+{
+    static int v1_t = 0;
+    static int v2_t = 0;
+    static int V1firstenter = 1;
+    static int V2firstenter = 1;
+
+    if(voltage_pack <= V1 && V1firstenter == 1)    //reached V1 voltage for the first time
+    {
+        v1_t = in_dchg_count * LOGINTS;     //record the time
+        V1firstenter = 0;  //to prevent entering again
+    }
+    else if(voltage_pack <= (V1 - deltaV) && V2firstenter == 1)    //reached V2 voltage (V1 - deltaV) for the first time
+    {
+        v2_t = in_dchg_count * LOGINTS;     //record the time
+        V2firstenter = 0;  //to prevent entering again
+    }
+
+    v1v2_t = v2_t - v1_t;
+
+    if(in_dchg_count == total_dchg_row-1)   //dchg is done
+    {
+        V1firstenter = 1;   //release the condition when dchg is done
+        V2firstenter = 1;   //release the condition when dchg is done
+    }
+
+    if(deltaV == INITDELTAV)
+    {
+        capacity_dchg_mAs -= current_learning_machine;
+        capacity_dchg_mAh = capacity_dchg_mAs * LOGINTS/ 3600.0;
+    }
+
+    return 0;
+}
+
+int alg_rest()
+{
+
+    return 0;
+}
+
 //do things according to learning machine Desc state (CHG, DCHG, or REST)
 int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *total_row_num, int *total_chg_row_num, int *total_dchg_row_num, int *total_rest_row_num, int deltaV)
 {
@@ -160,10 +147,13 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
     int in_chg_count = 0;
     int current_chg[*total_chg_row_num];
     int current_dchg[*total_dchg_row_num];
-    int capacity_chg_mAs = 0;
-    float capacity_chg_mAh = 0;
-    int capacity_dchg_mAs = 0;
-    float capacity_dchg_mAh = 0;
+    //int capacity_chg_mAs = 0;
+    //float capacity_chg_mAh = 0;
+    //int capacity_dchg_mAs = 0;
+    //float capacity_dchg_mAh = 0;
+
+    static int v_old = 0;
+    static int v_new = 0;
 
     char* cdesc;
 
@@ -177,10 +167,10 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
         return 0;
     }
 
-    //if the file did not pass the file integrity check, there is no point in entering alg mode
     if(alg_mode)
     {
-        if(*file_integrity_check == 0) //pass file integrity check
+        //if the file did not pass the file integrity check, there is no point in entering alg mode
+        if(*file_integrity_check == 0 /*&& voltage_abnor_diff_test == 0*/) //pass file integrity check
         {
             alg_mode = 1;
         }
@@ -188,15 +178,13 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
         {
             alg_mode = 0;
         }
-    }
 
-    //init total row num count to prevent accumulation due to multiple calls of desc_state()
-    if(alg_mode)
-    {
+        //init total row num count to prevent accumulation due to multiple calls of desc_state()
         *total_row_num = -1;    //ignore the first row of the .csv (data description)
     }
     else
     {
+        //init total row num count to prevent accumulation due to multiple calls of desc_state()
         *total_row_num = -1;    //ignore the first row of the .csv (data description)
         *total_chg_row_num = 0;
         *total_dchg_row_num = 0;
@@ -227,7 +215,7 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             if(alg_mode)
             {
                 //do things while charging in real time
-                alg_charging(*total_chg_row_num,in_chg_count);
+                alg_charging(deltaV,*total_chg_row_num,in_chg_count);
                 current_chg[in_chg_count] = current_learning_machine;
                 in_chg_count++;
             }
@@ -248,6 +236,16 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             else
             {
                 (*total_dchg_row_num)++;    //accumulate DCHG row count
+
+                v_new = voltage_pack;
+
+                if(((v_new - v_old < -MAXVOLTDIFF) || (v_new - v_old > MAXVOLTDIFF)) && (*total_dchg_row_num) > 1)    //unexpected voltage jump or drop during dchg
+                {
+                    voltage_abnor_diff_test = 1;
+                }
+
+                v_old = v_new;
+
             }
         }
         else if(0==strcmp("REST",cdesc))    //current read line is in REST mode
@@ -269,28 +267,28 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
     if((!alg_mode) && (*file_integrity_check == 0) && (*total_row_num != *total_chg_row_num + *total_dchg_row_num + *total_rest_row_num))  //.csv data integrity check from Desc
     {
         *file_integrity_check = 1;  //did not pass the check
-        printf("cycle:\t%d Warning! Unknown Desc in the .csv! Data may be incomplete!\r\n",cycle_file);
+        printf("Warning! Unknown Desc in the .csv! Data may be incomplete!cycle:%d\r\n",cycle_file);
         //printf("total row \t= %d\r\ntotal chg row \t= %d\r\ntotal dchg row \t= %d\r\ntotal rest row \t= %d\r\n",*total_chg_row_num,*total_chg_row_num,*total_dchg_row_num,*total_rest_row_num);
     }
 
-    if(alg_mode)  //executes when in alg mode and after all lines from .csv are read (not in real time)
-    {
-        for(i = 0; i < (*total_chg_row_num); i++)   //calculate charging capacity
-        {
-            capacity_chg_mAs += current_chg[i];
-            capacity_chg_mAh = capacity_chg_mAs * LOGINTS / 3600.0;
-        }
-
-        //printf("cycle:\t%d\tchg capacity:%f\r\n",cycle_file,capacity_chg_mAh);
-
-        for(i = 0; i < (*total_dchg_row_num); i++)  //calculate discharging capacity
-        {
-            capacity_dchg_mAs += current_dchg[i];
-            capacity_dchg_mAh = capacity_dchg_mAs * LOGINTS/ 3600.0;
-        }
-
-        //printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
-    }
+//    if(alg_mode)  //executes when in alg mode and after all lines from .csv are read (not in real time)
+//    {
+//        for(i = 0; i < (*total_chg_row_num); i++)   //calculate charging capacity
+//        {
+//            capacity_chg_mAs += current_chg[i];
+//            capacity_chg_mAh = capacity_chg_mAs * LOGINTS / 3600.0;
+//        }
+//
+//        //printf("cycle:\t%d\tchg capacity:%f\r\n",cycle_file,capacity_chg_mAh);
+//
+//        for(i = 0; i < (*total_dchg_row_num); i++)  //calculate discharging capacity
+//        {
+//            capacity_dchg_mAs += current_dchg[i];
+//            capacity_dchg_mAh = capacity_dchg_mAs * LOGINTS/ 3600.0;
+//        }
+//
+//        printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
+//    }
 
     fclose(stream1);
     return 0;
@@ -329,7 +327,8 @@ int main()
 
     int deltaV = 0;     //the voltage difference between v1 and v2
 
-    pResultFile = fopen("result.txt","w");
+    pResultFile = fopen(FILENAME,"w");  //create new blank file
+
     if( NULL == pResultFile )
     {
         printf( "open failure" );
@@ -339,20 +338,20 @@ int main()
 
     fclose(pResultFile);
 
-    pResultFile = fopen("result.txt","a");
+    pResultFile = fopen(FILENAME,"a");
 
     fprintf(pResultFile, "Cycle\t");
-    for(deltaV = 50;deltaV <= 600; deltaV+=50) //decrease v2 for every cycle
+    for(deltaV = INITDELTAV;deltaV <= DELTAVEND; deltaV+=DELTAVINCRE) //decrease v2 for every cycle
     {
         fprintf(pResultFile, "%d mV\t", V1 - deltaV);
     }
 
+    fprintf(pResultFile, "DCHG Capacity\tCHG Capacity");
+
     fprintf(pResultFile, "\n");
 
-    for(cycle_file = 400; cycle_file <= 420/*TOTALFILENUM*/; cycle_file++)   //cycle all the files in the folder
+    for(cycle_file = 1; cycle_file <= TOTALFILENUM/*TOTALFILENUM*/; cycle_file++)   //cycle all the files in the folder
     {
-        //fprintf(pResultFile, "%d\t", cycle_file);
-
         if(cycle_file < 10) //add "00": "1" -> "001"
         {
             sprintf(st2,"%d",cycle_file);   //convert int to string
@@ -377,31 +376,48 @@ int main()
             *file_path = *combined_str2;
         }
 
+        capacity_dchg_mAs = 0;
+        capacity_dchg_mAh = 0;
+        capacity_chg_mAs = 0;
+        capacity_chg_mAh = 0;
+
         file_integrity_check = 0;
         //always call desc_state(0,,,,) before desc_state(1,,,,)
         desc_state(0,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //calculate how many rows of CHG, DCHG and REST modes
 
-        if(!file_integrity_check)
+        if(!file_integrity_check && !voltage_abnor_diff_test)
         {
             fprintf(pResultFile, "%d\t", cycle_file);
+            //printf("%d\t", cycle_file);
 
-            for(deltaV = 50;deltaV <= 600; deltaV+=50) //decrease v2 for every cycle
+            for(deltaV = INITDELTAV;deltaV <= DELTAVEND; deltaV+=DELTAVINCRE) //decrease v2 for every cycle
             {
                 desc_state(1,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //execute algorithm
 
                 fprintf(pResultFile, "%d\t", v1v2_t);
+                //printf("%d\t", v1v2_t);
             }
 
+            //printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
+            fprintf(pResultFile,"%f\t%f\t",capacity_dchg_mAh,capacity_chg_mAh);
+
             fprintf(pResultFile, "\n");
+            //printf("\n");
         }
         else
         {
+            if(voltage_abnor_diff_test)  //Unexpected voltage jump or drop during dchg
+            {
+                printf("Warning! Unexpected voltage jump or drop during dchg! cycle:%d\r\n",cycle_file);
+            }
+
+            voltage_abnor_diff_test = 0;
             fprintf(pResultFile, "%d\n", cycle_file);
         }
 
-        //printf("=====================%d\r\n",deltaV);
-        printf("%f%%\r",100.0*cycle_file/TOTALFILENUM);
+        printf("%f%%\t%d\r",100.0*cycle_file/TOTALFILENUM,cycle_file);
         fflush(stdout);
+
     }
 
     fclose(pResultFile);
