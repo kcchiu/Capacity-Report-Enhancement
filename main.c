@@ -1,30 +1,105 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
-#define LIBell3S1PATL363520C525W1   //define folder name
+//#define LIBell3S1PATL3635               //define folder name
+//#define LIWinduTachiRear3S1PATL2040     //define folder name
+//#define LIYoda3S1PATL4950               //define folder name
+#define LCG142S1PATL595490C4000         //define folder name
 
-#ifdef LIBell3S1PATL363520C525W1
-    #define LOGINTS 15          //learning machine log interval in seconds
-    //#define FILEPATH    "C:\\SyncFolder\\Simplo\\@SMP Fuel Gauge\\Capacity Report Enhancement\\data\\LI Bell 3S1P ATL 3635 20C 5.25W-1\\LI Bell 3S1P ATL 3635 20C 5.25W-1-"
+#ifdef LIBell3S1PATL3635
+    #define LOGINTS         15          //learning machine log interval in seconds
+    #define FOLDERPATH      "E:\\Simplo\\Data\\Cycle\\LI Bell 3S1P ATL 3635\\LI Bell 3S1P ATL 3635 45C 5.25W-3\\"
+    #define FILENAME        "LI Bell 3S1P ATL 3635 45C 5.25W-3-"
+    #define RESULTFILENAME  "LI Bell 3S1P ATL 3635 45C 5.25W-3.txt"
+    #define V1              11400   //3800*3 = 11400 mV
+#endif
 
-    //#define FILEPATH    "E:\\Simplo\\Data\\Cycle\\LI Bell 3S1P ATL 3635\\LI Bell 3S1P ATL 3635 45C 5.25W-3\\LI Bell 3S1P ATL 3635 45C 5.25W-3-"
-    #define FILEPATH    "E:\\Simplo\\Data\\Cycle\\LI Windu Tachi Rear 3S1P ATL 2040\\LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3\\LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3-"
+#ifdef LIWinduTachiRear3S1PATL2040
+    #define LOGINTS         15          //learning machine log interval in seconds
+    #define FOLDERPATH      "E:\\Simplo\\Data\\Cycle\\LI Windu Tachi Rear 3S1P ATL 2040\\LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3\\"
+    #define FILENAME        "LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3-"
+    #define RESULTFILENAME  "LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3.txt"
+    #define V1              11400   //3800*3 = 11400 mV
+#endif
 
-    #define FILENAME "LI Windu Tachi Rear 3S1P ATL 2040 40C4.8W-3.txt"
-    #define TOTALFILENUM 262   //total cycle file numbers in in the folder
-    #define V1 11400
+#ifdef LIYoda3S1PATL4950
+    #define LOGINTS         15          //learning machine log interval in seconds
+    #define FOLDERPATH      "E:\\Simplo\\Data\\Cycle\\LI Yoda 3S1P ATL 4950\\LI Yoda 3S1P ATL 4950 40C5.7W-1\\"
+    #define FILENAME        "LI Yoda 3S1P ATL 4950 40C5.7W-1-"
+    #define RESULTFILENAME  "LI Yoda 3S1P ATL 4950 40C5.7W-1.txt"
+    #define V1              11400   //3800*3 = 11400 mV
+#endif
+
+#ifdef LCG142S1PATL595490C4000
+    #define LOGINTS         15          //learning machine log interval in seconds
+    #define FOLDERPATH      "E:\\Simplo\\Data\\Cycle\\LC G14 2S1P ATL 595490C 4000\\LC G14 2S1P ATL 595490C 4000 45C30W-3\\"
+    #define FILENAME        "LC G14 2S1P ATL 595490C 4000 45C30W-3-"
+    #define RESULTFILENAME  "LC G14 2S1P ATL 595490C 4000 45C30W-3.txt"
+    #define V1              7600    //3800*2 = 7600 mV
 #endif
 
 #define MAXVOLTDIFF 1000
-#define INITDELTAV 50
+#define INITDELTAV  50
 #define DELTAVINCRE 50
-#define DELTAVEND 600
+#define DELTAVEND   600
 
-#define LINELENBUF 670
+#define LINELENBUF  670
 
 char* file_path[300];
-enum {Rdate=1,Cycle,Loop,Step,Desc,LV,LI,LT,LF,CT,ohm,ManufacturerAccess,RemainingCapacityAlarm,RemainingTimeAlarm,BatteryMode,AtRate,AtRateTimeToFull,AtRateTimeToEmpty,AtRateOK,Temperature,Voltage,Current,AverageCurrent,MaxError,RelativeStateOfCharge,AbsoluteStateOfCharge,RemainingCapacity,FullChargeCapacity,RunTimeToEmpty,AverageTimeToEmpty,AverageTimeToFull,ChargingCurrent,ChargingVoltage,BatteryStatus,CycleCount,DesignCapacity,DesignVoltage,SpecificationInfo,ManufactureDate,SerialNumber,PackStatus,Packconfiguration,ManufactureData_VCELL1,ManufactureData_VCELL2,ManufactureData_VCELL3,ManufactureData_VCELL4,mAh,LmAh,WH,LWH};
+enum {
+        Rdate=1,
+        Cycle,
+        Loop,
+        Step,
+        Desc,
+        LV,
+        LI,
+        LT,
+        LF,
+        CT,
+        ohm,
+        ManufacturerAccess,
+        RemainingCapacityAlarm,
+        RemainingTimeAlarm,
+        BatteryMode,
+        AtRate,
+        AtRateTimeToFull,
+        AtRateTimeToEmpty,
+        AtRateOK,
+        Temperature,
+        Voltage,
+        Current,
+        AverageCurrent,
+        MaxError,
+        RelativeStateOfCharge,
+        AbsoluteStateOfCharge,
+        RemainingCapacity,
+        FullChargeCapacity,
+        RunTimeToEmpty,
+        AverageTimeToEmpty,
+        AverageTimeToFull,
+        ChargingCurrent,
+        ChargingVoltage,
+        BatteryStatus,
+        CycleCount,
+        DesignCapacity,
+        DesignVoltage,
+        SpecificationInfo,
+        ManufactureDate,
+        SerialNumber,
+        PackStatus,
+        Packconfiguration,
+        ManufactureData_VCELL1,
+        ManufactureData_VCELL2,
+        ManufactureData_VCELL3,
+        ManufactureData_VCELL4,
+        mAh,
+        LmAh,
+        WH,
+        LWH
+    };
 
 int cycle_file = 0;
 //int cfData.current_learning_machinee = 0;
@@ -179,12 +254,8 @@ int alg_rest()
 //do things according to learning machine Desc state (CHG, DCHG, or REST)
 int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *total_row_num, int *total_chg_row_num, int *total_dchg_row_num, int *total_rest_row_num, int deltaV)
 {
-    int i = 0;
     int in_dchg_count = 0;
     int in_chg_count = 0;
-    int current_chg[*total_chg_row_num];
-    int current_dchg[*total_dchg_row_num];
-
     static int v_old = 0;
     static int v_new = 0;
 
@@ -249,7 +320,6 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             {
                 //do things while charging in real time
                 alg_charging(deltaV,*total_chg_row_num,in_chg_count);
-                current_chg[in_chg_count] = cfData.current_learning_machine;
                 in_chg_count++;
             }
             else
@@ -263,7 +333,6 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
             {
                 //do things while discharging in real time
                 alg_discharging(deltaV,*total_dchg_row_num,in_dchg_count,cycle_file);
-                current_dchg[in_dchg_count] = cfData.current_learning_machine;
                 in_dchg_count++;
             }
             else
@@ -301,7 +370,6 @@ int desc_state(int alg_mode, int cycle_file, int *file_integrity_check, int *tot
     {
         *file_integrity_check = 1;  //did not pass the check
         printf("Warning! Unknown Desc in the .csv! Data may be incomplete!cycle:%d\r\n",cycle_file);
-        //printf("total row \t= %d\r\ntotal chg row \t= %d\r\ntotal dchg row \t= %d\r\ntotal rest row \t= %d\r\n",*total_chg_row_num,*total_chg_row_num,*total_dchg_row_num,*total_rest_row_num);
     }
 
     fclose(stream1);
@@ -320,24 +388,44 @@ char* concat(const char *s1, const char *s2)
     return result;
 }
 
+int count_file_number()
+{
+    int file_count = 0;
+    DIR * dirp;
+    struct dirent * entry;
+
+    dirp = opendir(FOLDERPATH); /* There should be error handling after this */
+    while ((entry = readdir(dirp)) != NULL)
+    {
+        file_count++;
+    }
+
+    closedir(dirp);
+
+    return file_count;
+}
+
 int main()
 {
-    char* combined_str[300];
-    char* combined_str2[300];
-    char* combined_str3[300];
-    const char st1[] = FILEPATH;
-    char st2[5];
+    char* combined_str0[300] = {0};
+    char* combined_str1[300] = {0};
+    char* combined_str2[300] = {0};
+    char* combined_str3[300] = {0};
+    const char st0[] = FOLDERPATH;
+    const char st1[] = FILENAME;
+    char       st2[5] = {0};
     const char st3[] = ".csv";
     const char st4[] = "00";
     const char st5[] = "0";
 
-    int file_integrity_check = 0; //0:Normal, 1:File integrity issue
+    int total_file_count = 0;       //total cycle files in the folder
+    int file_integrity_check = 0;   //0:Normal, 1:File integrity issue
 
-    int deltaV = 0;     //the voltage difference between v1 and v2
+    int deltaV = 0;                 //the voltage difference between v1 and v2
 
     init();
 
-    pResultFile = fopen(FILENAME,"w");  //create new blank file
+    pResultFile = fopen(RESULTFILENAME,"w");  //create new blank file
 
     if( NULL == pResultFile )
     {
@@ -348,7 +436,7 @@ int main()
 
     fclose(pResultFile);
 
-    pResultFile = fopen(FILENAME,"a");
+    pResultFile = fopen(RESULTFILENAME,"a");
 
     fprintf(pResultFile, "Cycle\t");
 
@@ -360,29 +448,34 @@ int main()
     fprintf(pResultFile, "DCHG Capacity\tCHG Capacity");
     fprintf(pResultFile, "\n");
 
-    for(cycle_file = 1; cycle_file <= TOTALFILENUM/*TOTALFILENUM*/; cycle_file++)   //cycle all the files in the folder
+    total_file_count = count_file_number()-3;   //count total cycle files in the folder
+    *combined_str0 = concat(st0,st1);
+
+    printf("Analyzing:\t%s\r\nTotal Files:\t%d\r\n",FILENAME,total_file_count);
+
+    for(cycle_file = 1; cycle_file <= total_file_count/*total_file_count*/; cycle_file++)   //cycle all the files in the folder
     {
         if(cycle_file < 10) //add "00": "1" -> "001"
         {
             sprintf(st2,"%d",cycle_file);   //convert int to string
-            *combined_str = concat(st1,st4);
-            *combined_str2 = concat(*combined_str,st2);
+            *combined_str1 = concat(*combined_str0,st4);
+            *combined_str2 = concat(*combined_str1,st2);
             *combined_str3 = concat(*combined_str2,st3);
             *file_path = *combined_str3;
         }
         else if(cycle_file < 100)   //add "0": "10" -> "010"
         {
             sprintf(st2,"%d",cycle_file);   //convert int to string
-            *combined_str = concat(st1,st5);
-            *combined_str2 = concat(*combined_str,st2);
+            *combined_str1 = concat(*combined_str0,st5);
+            *combined_str2 = concat(*combined_str1,st2);
             *combined_str3 = concat(*combined_str2,st3);
             *file_path = *combined_str3;
         }
         else
         {
             sprintf(st2,"%d",cycle_file);   //convert int to string
-            *combined_str = concat(st1,st2);
-            *combined_str2 = concat(*combined_str,st3);
+            *combined_str1 = concat(*combined_str0,st2);
+            *combined_str2 = concat(*combined_str1,st3);
             *file_path = *combined_str2;
         }
 
@@ -398,20 +491,16 @@ int main()
         if(!file_integrity_check && !voltage_abnor_diff_test)
         {
             fprintf(pResultFile, "%d\t", cycle_file);
-            //printf("%d\t", cycle_file);
 
             for(deltaV = INITDELTAV;deltaV <= DELTAVEND; deltaV+=DELTAVINCRE) //decrease v2 for every cycle
             {
                 desc_state(1,cycle_file,&file_integrity_check,&total_row,&total_chg_row,&total_dchg_row,&total_rest_row,deltaV);    //execute algorithm
 
                 fprintf(pResultFile, "%d\t", v1v2_t);
-                //printf("%d\t", v1v2_t);
             }
 
             fprintf(pResultFile,"%f\t%f\t",capacity_dchg_mAh,capacity_chg_mAh);
-            //printf("cycle:\t%d\tdchg capacity:%f\r\n",cycle_file,capacity_dchg_mAh);
             fprintf(pResultFile, "\n");
-            //printf("\n");
         }
         else
         {
@@ -424,7 +513,7 @@ int main()
             fprintf(pResultFile, "%d\n", cycle_file);
         }
 
-        printf("%f%%\t%d\r",100.0*cycle_file/TOTALFILENUM,cycle_file);
+        printf("Progress:\t%f%%\tCycle: %d\r",100.0*cycle_file/total_file_count,cycle_file);
         fflush(stdout);
     }
 
